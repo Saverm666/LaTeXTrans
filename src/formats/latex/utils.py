@@ -773,20 +773,20 @@ def download_tex(arxiv_id: str, tex_url: str, save_dir: str, headers: dict):
                                 progress = downloaded / total_size
                                 st_progress.progress(progress)
                                 status_text.text(
-                                    f"Downloading {arxiv_id}: {downloaded/1024/1024:.2f}MB / {total_size/1024/1024:.2f}MB"
+                                    f"正在下载 {arxiv_id}：{downloaded/1024/1024:.2f}MB / {total_size/1024/1024:.2f}MB"
                                 )
                                 sys.stderr = sys.__stderr__
                                 last_report_ts = now
             
         sys.stderr = open(os.devnull, 'w')
-        st.success(f"[SUCCESS] {arxiv_id} successfully downloaded to {file_path}.")
+        st.success(f"[成功] {arxiv_id} 已下载到 {file_path}。")
         sys.stderr = sys.__stderr__
 
         return os.path.join(save_dir, f"{arxiv_id}")
 
     except requests.RequestException as e:
         sys.stderr = open(os.devnull, 'w')
-        st.error(f"[FAIL] {arxiv_id} download failed: {e}")
+        st.error(f"[失败] {arxiv_id} 下载失败：{e}")
         sys.stderr = sys.__stderr__
         return None
 
@@ -800,35 +800,30 @@ def batch_download_arxiv_tex(arxiv_ids: List[str], save_dir: str = "./tex_source
         if is_already_downloaded(arxiv_id, save_dir):
             source_dirs.append(os.path.join(save_dir, arxiv_id))
             print(f"[SkIP] Already downloaded: {arxiv_id}")
-            continue
-
-        tex_url = get_tex_url(arxiv_id, headers)
-        if tex_url:
-            dir = download_tex(arxiv_id, tex_url, save_dir, headers)
-            if dir:
-                source_dirs.append(dir)
-            else:
-                print(f"[SKIP] Source download failed for {arxiv_id}, skip TeX processing.")
         else:
-            print(f"[SKIP] No TeX source found for {arxiv_id}. Please check the arXiv ID or the availability of the source.")
+            tex_url = get_tex_url(arxiv_id, headers)
+            if tex_url:
+                dir = download_tex(arxiv_id, tex_url, save_dir, headers)
+                if dir:
+                    source_dirs.append(dir)
+                else:
+                    print(f"[SKIP] Source download failed for {arxiv_id}, skip TeX processing.")
+            else:
+                print(f"[SKIP] No TeX source found for {arxiv_id}. Please check the arXiv ID or the availability of the source.")
 
-            # 下载PDF文件
-        pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
         pdf_path = os.path.join(save_dir, arxiv_id, f"{arxiv_id}.pdf")
-        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+        if not os.path.isfile(pdf_path):
+            from src.formats.latex.arxiv_pdf import download_arxiv_pdf
 
-        try:
-            response = requests.get(pdf_url, headers=headers)
-            response.raise_for_status()
-            with open(pdf_path, 'wb') as f:
-                f.write(response.content)
-            sys.stderr = open(os.devnull, 'w')
-            st.success(f"[SUCCESS] Downloaded PDF for {arxiv_id}")
-            sys.stderr = sys.__stderr__
-        except Exception as e:
-            sys.stderr = open(os.devnull, 'w')
-            st.error(f"[ERROR] Failed to download PDF for {arxiv_id}: {str(e)}")
-            sys.stderr = sys.__stderr__
+            downloaded = download_arxiv_pdf(arxiv_id, pdf_path)
+            if downloaded:
+                sys.stderr = open(os.devnull, 'w')
+                st.success(f"[成功] 已下载 {arxiv_id} 的 PDF")
+                sys.stderr = sys.__stderr__
+            else:
+                sys.stderr = open(os.devnull, 'w')
+                st.error(f"[错误] 下载 {arxiv_id} 的 PDF 失败")
+                sys.stderr = sys.__stderr__
 
     return source_dirs
 

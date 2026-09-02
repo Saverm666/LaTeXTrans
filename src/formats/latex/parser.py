@@ -25,7 +25,7 @@ class LatexParser:
         sys.stderr = open(os.devnull, 'w')
         process_b = st.empty()
         with process_b:
-            process_bar = st.progress(0, text="Parsing LaTeX document...")
+            process_bar = st.progress(0, text="正在解析 LaTeX 文档…")
         sys.stderr = sys.__stderr__
 
         main_tex_file = find_main_tex_file(self.dir) 
@@ -34,7 +34,7 @@ class LatexParser:
             return None
 
         sys.stderr = open(os.devnull, 'w')
-        process_bar.progress(10, text="Finding main tex file...")
+        process_bar.progress(10, text="正在查找主 tex 文件…")
         sys.stderr = sys.__stderr__
 
         main_tex = read_tex_file(main_tex_file)
@@ -43,7 +43,7 @@ class LatexParser:
             return None
         
         sys.stderr = open(os.devnull, 'w')
-        process_bar.progress(20,text="Reading main tex file...")
+        process_bar.progress(20,text="正在读取主 tex 文件…")
         sys.stderr = sys.__stderr__
 
         main_tex = remove_comments(main_tex)
@@ -77,8 +77,8 @@ class LatexParser:
                 self.sections_json[i]["content"] = self._extract_envs(section_content)
 
         sys.stderr = open(os.devnull, 'w')
-        process_bar.progress(100, text="Finish Parse Sections")
-        st.success("Finish Parse Sections")
+        process_bar.progress(100, text="章节解析完成")
+        st.success("章节解析完成")
         process_b.empty()
         sys.stderr = sys.__stderr__
 

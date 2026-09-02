@@ -128,6 +128,12 @@ def load_runtime_config(
         llm_config["model"] = overrides["model"]
     if overrides.get("key"):
         llm_config["api_key"] = overrides["key"]
+    if overrides.get("repair_url"):
+        llm_config["repair_base_url"] = overrides["repair_url"]
+    if overrides.get("repair_model"):
+        llm_config["repair_model"] = overrides["repair_model"]
+    if overrides.get("repair_key"):
+        llm_config["repair_api_key"] = overrides["repair_key"]
 
     for key in ("source", "output", "source_language", "target_language", "user_term"):
         if overrides.get(key):
@@ -211,6 +217,7 @@ def run_projects(
     projects: Sequence[str],
     output_dir: str,
     event_callback: Optional[ProjectEventCallback] = None,
+    fresh: bool = False,
 ) -> Dict[str, List[Dict[str, Any]]]:
     completed_projects: List[Dict[str, Any]] = []
     failed_projects: List[Dict[str, Any]] = []
@@ -234,6 +241,7 @@ def run_projects(
                 config=config,
                 project_dir=project_dir,
                 output_dir=output_dir,
+                fresh=fresh,
             )
             latex_trans.workflow_latextrans()
         except Exception as e:
@@ -290,6 +298,7 @@ def run_translation(
     project_items: Optional[Iterable[str]] = None,
     all_existing: bool = False,
     event_callback: Optional[ProjectEventCallback] = None,
+    fresh: bool = False,
 ) -> Dict[str, Any]:
     config = load_runtime_config(config_path=config_path, overrides=overrides)
     projects, config, projects_dir, output_dir = prepare_projects(
@@ -302,6 +311,7 @@ def run_translation(
         projects=projects,
         output_dir=output_dir,
         event_callback=event_callback,
+        fresh=fresh,
     )
     return {
         "config": config,

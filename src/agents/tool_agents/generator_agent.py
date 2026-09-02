@@ -34,7 +34,7 @@ class GeneratorAgent(BaseToolAgent):
         self.log(f"🤖💬 Start generating for project...⏳: {os.path.basename(self.project_dir)}.")
 
         sys.stderr = open(os.devnull, 'w')
-        self.status_text.text("🔄 Start generating for project...")
+        self.status_text.text("🔄 开始生成工程…")
         self.progress_bar.progress(5)
         sys.stderr = sys.__stderr__
 
@@ -42,7 +42,7 @@ class GeneratorAgent(BaseToolAgent):
         from src.formats.latex.reconstruct import LatexConstructor
 
         sys.stderr = open(os.devnull, 'w')
-        self.status_text.text("📂 Reading...")
+        self.status_text.text("📂 正在读取…")
         self.progress_bar.progress(10)
         sys.stderr = sys.__stderr__
         sections = self.read_file(Path(self.output_dir, "sections_map.json"), "json")
@@ -65,10 +65,11 @@ class GeneratorAgent(BaseToolAgent):
         sys.stderr = open(os.devnull, 'w')
         self.progress_bar.progress(60)
 
-        self.status_text.text("📁 Creating translation project directory ..")
+        self.status_text.text("📁 正在创建译文工程目录…")
         sys.stderr = sys.__stderr__
 
         transed_latex_dir = self._creat_transed_latex_folder(self.project_dir)
+        self._ensure_original_pdf(transed_latex_dir)
 
         sys.stderr = open(os.devnull, 'w')
         self.progress_bar.progress(70)
@@ -77,7 +78,7 @@ class GeneratorAgent(BaseToolAgent):
         print(transed_latex_dir)
 
         sys.stderr = open(os.devnull, 'w')
-        self.status_text.text("🔨 Refactoring LaTeX document...")
+        self.status_text.text("🔨 正在重构 LaTeX 文档…")
         sys.stderr = sys.__stderr__
         latex_constructor = LatexConstructor(
                                 sections=sections,
@@ -91,7 +92,7 @@ class GeneratorAgent(BaseToolAgent):
 
         sys.stderr = open(os.devnull, 'w')
         self.progress_bar.progress(80)
-        self.status_text.text("🛠️ Compiling PDF document...")
+        self.status_text.text("🛠️ 正在编译 PDF…")
         sys.stderr = sys.__stderr__
 
         latex_compiler = LaTexCompiler(output_latex_dir=transed_latex_dir)
@@ -101,11 +102,12 @@ class GeneratorAgent(BaseToolAgent):
         self.progress_bar.progress(90)
         sys.stderr = sys.__stderr__
         if pdf_file:
+            self._try_compile_variants(transed_latex_dir, pdf_file)
 
             sys.stderr = open(os.devnull, 'w')
-            self.status_text.text("✅ Successfully compiled PDF document.")
+            self.status_text.text("✅ PDF 编译成功。")
             self.progress_bar.progress(100)
-            st.success(f"✅ Successfully generated for {os.path.basename(self.project_dir)}.")
+            st.success(f"✅ 已生成：{os.path.basename(self.project_dir)}。")
             time.sleep(2)
             self.process_b.empty()
             self.status_text.empty()
@@ -115,7 +117,7 @@ class GeneratorAgent(BaseToolAgent):
             return pdf_file
         else:
             sys.stderr = open(os.devnull, 'w')
-            self.status_text.error("❌ Failed to compile PDF document.")
+            self.status_text.error("❌ PDF 编译失败。")
             self.process_b.empty()
             sys.stderr = sys.__stderr__
             return None
@@ -135,6 +137,62 @@ class GeneratorAgent(BaseToolAgent):
         shutil.copytree(src_dir, dest_dir)
 
         return dest_dir
+
+    def _ensure_original_pdf(self, transed_latex_dir: str) -> None:
+        from src.formats.latex.arxiv_pdf import download_arxiv_pdf, infer_arxiv_id
+        from src.formats.latex.bilingual import ensure_original_pdf, preferred_original_pdf_path
+        from src.formats.latex.compile import LaTexCompiler
+
+        dest = preferred_original_pdf_path(transed_latex_dir)
+        arxiv_id = infer_arxiv_id(self.project_dir) or infer_arxiv_id(transed_latex_dir)
+
+        def download_original():
+            if not arxiv_id:
+                return None
+            print(f"📄 Downloading original PDF from arXiv {arxiv_id}...")
+            return download_arxiv_pdf(arxiv_id, dest)
+
+        def compile_original():
+            print("📄 No original PDF found; compiling original TeX...")
+            return LaTexCompiler(output_latex_dir=transed_latex_dir).compile()
+
+        original_pdf = ensure_original_pdf(
+            transed_latex_dir,
+            download_original=download_original,
+            compile_original=compile_original,
+        )
+        if original_pdf:
+            print(f"✅  Original PDF ready: {original_pdf}")
+        else:
+            print("⚠️  Could not obtain original PDF; bilingual variants may be skipped.")
+
+    def _try_compile_variants(self, transed_latex_dir: str, translated_pdf: str) -> None:
+        from src.formats.latex.bilingual import (
+            compile_bilingual_pdf,
+            compile_side_by_side_pdf,
+            find_original_pdf,
+        )
+
+        original_pdf = find_original_pdf(transed_latex_dir, translated_pdf)
+        if not original_pdf:
+            print("⚠️  No original PDF found; skip bilingual and side-by-side PDFs.")
+            return
+        try:
+            compile_bilingual_pdf(
+                original_pdf,
+                translated_pdf,
+                os.path.join(transed_latex_dir, "bilingual.pdf"),
+            )
+        except Exception as exc:
+            print(f"⚠️  Failed to build bilingual PDF: {exc}")
+        try:
+            compile_side_by_side_pdf(
+                original_pdf,
+                translated_pdf,
+                os.path.join(transed_latex_dir, "sidebyside.pdf"),
+            )
+        except Exception as exc:
+            print(f"⚠️  Failed to build side-by-side PDF: {exc}")
         
     
 

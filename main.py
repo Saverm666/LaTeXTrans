@@ -111,6 +111,9 @@ def main():
     parser.add_argument("--model", type=str, default="", help="Model for translating.")
     parser.add_argument("--url", type=str, default="", help="Model url.")
     parser.add_argument("--key", type=str, default="", help="Model key.")
+    parser.add_argument("--repair-model", type=str, default="", help="Model used only for validation-error repair.")
+    parser.add_argument("--repair-url", type=str, default="", help="Endpoint for the validation-error repair model.")
+    parser.add_argument("--repair-key", type=str, default="", help="API key for the validation-error repair model.")
     parser.add_argument("--arxiv", nargs="+", default=[], help="arXiv ID(s), comma-separated.")
     parser.add_argument(
         "--project",
@@ -124,6 +127,11 @@ def main():
         "--all-existing",
         action="store_true",
         help="Process all existing projects under tex source directory when no --arxiv/--project is provided.",
+    )
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Ignore checkpoints and rerun from parse.",
     )
 
     args = parser.parse_args()
@@ -145,6 +153,12 @@ def main():
         config["llm_config"]["model"] = args.model
     if args.key:
         config["llm_config"]["api_key"] = args.key
+    if args.repair_model:
+        config["llm_config"]["repair_model"] = args.repair_model
+    if args.repair_url:
+        config["llm_config"]["repair_base_url"] = args.repair_url
+    if args.repair_key:
+        config["llm_config"]["repair_api_key"] = args.repair_key
     if args.source:
         config["tex_sources_dir"] = args.source
     if args.output:
@@ -204,6 +218,7 @@ def main():
                 config=config,
                 project_dir=project_dir,
                 output_dir=output_dir,
+                fresh=args.fresh,
             )
             latex_trans.workflow_latextrans()
         except Exception as e:

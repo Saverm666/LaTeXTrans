@@ -34,9 +34,18 @@ class TranslatorAgent(BaseToolAgent):
             self.update_term = True 
             self.update_term = False
         # self.update_term = config.get("update_term", False)
-        self.model = config["llm_config"].get("model", "gpt-4o")
-        self.base_url = config["llm_config"].get("base_url", None)
-        self.API_KEY = config["llm_config"].get("api_key", None)
+        llm_config = config["llm_config"]
+        # Use the fast model for the first pass; CoordinatorAgent switches to
+        # the repair model only after ValidatorAgent reports an error.
+        self.fast_model = llm_config.get("model", "gpt-4o")
+        self.fast_base_url = llm_config.get("base_url", None)
+        self.fast_api_key = llm_config.get("api_key", None)
+        self.repair_model = llm_config.get("repair_model") or self.fast_model
+        self.repair_base_url = llm_config.get("repair_base_url") or self.fast_base_url
+        self.repair_api_key = llm_config.get("repair_api_key") or self.fast_api_key
+        self.model = self.fast_model
+        self.base_url = self.fast_base_url
+        self.API_KEY = self.fast_api_key
         self.user_term = config.get("user_term", None)
         self.target_language = config.get("target_language", "ch")
         self.category = config.get("category", None)
@@ -54,6 +63,13 @@ class TranslatorAgent(BaseToolAgent):
         self.prev_text = ''
         self.prev_transed_text = ''
         self.currant_content = ''
+
+    def use_repair_model(self) -> None:
+        """Route subsequent LLM requests to the configured repair model."""
+        self.model = self.repair_model
+        self.base_url = self.repair_base_url
+        self.API_KEY = self.repair_api_key
+        self.log(f"Using repair model for validation errors: {self.model}.")
 
     async def execute(self, error_retry_count=0, Maxtry=3):
 
@@ -76,7 +92,7 @@ class TranslatorAgent(BaseToolAgent):
             self.log(f"Starting translation for project: {os.path.basename(self.project_dir)}.")
 
             sys.stderr = open(os.devnull, 'w')
-            status_text.text(f"Starting translation for project: {os.path.basename(self.project_dir)}.")
+            status_text.text(f"开始翻译工程：{os.path.basename(self.project_dir)}。")
             process_bar.progress(5)
             sys.stderr = sys.__stderr__
 
@@ -102,7 +118,7 @@ class TranslatorAgent(BaseToolAgent):
 
                     sys.stderr = open(os.devnull, 'w')
                     process = int(5 + 90 * completed / total_tasks)
-                    process_bar.progress(process, text=f"Translating sections: {completed}/{total_tasks}")
+                    process_bar.progress(process, text=f"正在翻译章节：{completed}/{total_tasks}")
                     sys.stderr = sys.__stderr__
 
                     # It can be considered to save and modify to integrate memory once for hard memory read and write, 
@@ -112,7 +128,7 @@ class TranslatorAgent(BaseToolAgent):
                     self.save_file(Path(self.output_dir, "envs_map.json"), "json", envs)
 
                 sys.stderr = open(os.devnull, 'w')
-                status_text.text("Validating translation results...")
+                status_text.text("正在校验翻译结果…")
                 process_bar.progress(95)
                 sys.stderr = sys.__stderr__
 
@@ -139,7 +155,7 @@ class TranslatorAgent(BaseToolAgent):
                 self.log(
                     f"Starting retranslation for error parts: {error_parts}, attempt {error_retry_count + 1}/{Maxtry}.")
                 sys.stderr = open(os.devnull, "w")
-                status_text.text(f"Starting retranslation for error parts: {error_parts}, attempt {error_retry_count + 1}/{Maxtry}.")
+                status_text.text(f"正在重译出错片段：{error_parts}，第 {error_retry_count + 1}/{Maxtry} 次。")
                 sys.stderr = sys.__stderr__
                 await self._retranslate_error_parts(secs=sections,
                                                     caps=captions,
@@ -214,14 +230,14 @@ class TranslatorAgent(BaseToolAgent):
                 if fail_retry_count == Maxtry:  #  retry 3 times
                     print(f"Failed to translate: {fail_parts}")
                     sys.stderr = open(os.devnull, "w")
-                    status_text.error(f"Failed to translate: {fail_parts}")
-                    st.error(f"Failed to translate: {fail_parts}")
+                    status_text.error(f"翻译失败：{fail_parts}")
+                    st.error(f"翻译失败：{fail_parts}")
                     time.sleep(3)
                     sys.stderr = sys.__stderr__
                     break
                 self.log(f"Starting retranslation for failed parts: {fail_parts}, attempt {fail_retry_count+1}/{Maxtry}.")
                 sys.stderr = open(os.devnull, "w")
-                status_text.text(f"Starting retranslation for failed parts: {fail_parts}, attempt {fail_retry_count+1}/{Maxtry}.")
+                status_text.text(f"正在重译失败片段：{fail_parts}，第 {fail_retry_count+1}/{Maxtry} 次。")
                 sys.stderr = sys.__stderr__
                 await self._retranslate_fail_parts(secs=sections,
                                             caps=captions,
@@ -367,14 +383,14 @@ class TranslatorAgent(BaseToolAgent):
                 completed += 1
                 sys.stderr = open(os.devnull, 'w')
                 process_bar.progress(completed / total_error_tasks)
-                status_text.text(f"Retranslating error parts: {completed}/{total_error_tasks}")
+                status_text.text(f"正在重译出错片段：{completed}/{total_error_tasks}")
                 sys.stderr = sys.__stderr__
                 
                 if result is not None:  
                     i = result
             sys.stderr = open(os.devnull, 'w')
             process_bar.progress(100)
-            status_text.text("Complete a retranslation once")
+            status_text.text("完成一轮重译")
             time.sleep(3)
             process_b.empty()
             status_text.empty()
@@ -1001,6 +1017,5 @@ class TranslatorAgent(BaseToolAgent):
 
         for item in placeholder_list:
             self.term_dict[item] = item
-
 
 
