@@ -224,8 +224,6 @@ streamlit run src/gui/streamlit_app.py
   </tr>
 </table>
 
-📂 **更多样例请查看[`examples/`](examples/) 文件夹**, 包含每个样例的完整翻译 PDF。
-
 ---
 ## 致谢
 
