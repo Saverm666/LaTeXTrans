@@ -165,6 +165,8 @@ Or run Streamlit directly:
 streamlit run src/gui/streamlit_app.py
 ```
 
+After entering an OpenAI-compatible Base URL and API key in the sidebar, click **Fetch model list** to load and select a model from the server. The model, endpoint, and key are saved to the active configuration file. The optional repair model can be fetched and saved separately.
+
  > [!NOTE]
 Although LaTeXTrans supports translation from any language to any language, the current version has only made relatively complete compilation adaptations for translation from English to Chinese. When translating to other languages, the final output pdf may contain errors. We welcome you to raise an issue to describe the problem you have encountered, and we will solve it case by case.
 

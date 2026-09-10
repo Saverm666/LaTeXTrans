@@ -1,5 +1,9 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
+from src.formats.latex.compile import LaTexCompiler
 from src.formats.latex.compile_result import (
     latexmk_args,
     pick_compiled_pdf,
@@ -64,6 +68,54 @@ class CjkEngineOrderTest(unittest.TestCase):
 
         self.assertFalse(pdf_needs_xdvipdfmx_rewrite(b"%PDF-1.5\n"))
         self.assertTrue(pdf_needs_xdvipdfmx_rewrite(b"%PDF-1.7\n"))
+
+
+class CitationRecoveryTest(unittest.TestCase):
+    def test_runs_bibtex_for_aux_with_bibliography(self):
+        with TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            build = project / "build_xelatex"
+            build.mkdir()
+            tex_file = project / "main.tex"
+            tex_file.write_text("", encoding="utf-8")
+            (build / "main.aux").write_text("\\bibstyle{x}\n\\bibdata{main}\n", encoding="utf-8")
+            compiler = LaTexCompiler(str(project))
+
+            with patch("src.formats.latex.compile.subprocess.run") as run:
+                run.return_value.returncode = 0
+                status = compiler._run_bibtex_if_needed(str(tex_file), str(build))
+
+            self.assertTrue(status)
+            self.assertEqual(run.call_args.args[0], ["bibtex", "build_xelatex/main"])
+            self.assertEqual(run.call_args.kwargs["cwd"], str(project))
+
+    def test_skips_bibtex_when_aux_has_no_bibliography(self):
+        with TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            build = project / "build_xelatex"
+            build.mkdir()
+            tex_file = project / "main.tex"
+            tex_file.write_text("", encoding="utf-8")
+            (build / "main.aux").write_text("\\relax\n", encoding="utf-8")
+            compiler = LaTexCompiler(str(project))
+
+            with patch("src.formats.latex.compile.subprocess.run") as run:
+                status = compiler._run_bibtex_if_needed(str(tex_file), str(build))
+
+            self.assertIsNone(status)
+            run.assert_not_called()
+
+    def test_reruns_xelatex_twice_after_bibtex(self):
+        compiler = LaTexCompiler("/tmp/project")
+        with patch("src.formats.latex.compile.subprocess.run") as run:
+            compiler._rerun_latex_engine(
+                "/tmp/project/main.tex",
+                "/tmp/project/build_xelatex",
+                "xelatex",
+            )
+
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args.args[0][0:2], ["xelatex", "-no-pdf"])
 
 
 if __name__ == "__main__":

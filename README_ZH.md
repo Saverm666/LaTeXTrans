@@ -163,6 +163,8 @@ latextrans-gui
 streamlit run src/gui/streamlit_app.py
 ```
 
+在侧栏填写 OpenAI 兼容的 Base URL 和 API Key 后，点击“获取模型列表”即可从服务端加载模型并选择。模型、接口地址和密钥会保存到当前配置文件；修复模型也支持独立获取和保存。
+
  > [!NOTE]
 尽管 LaTeXTrans 支持任意语言到任意语言的翻译，但是目前版本仅对英文到中文的翻译做了相对完善的编译适配。翻译到其他语言时，最终输出的 pdf 可能会有错误，欢迎提出 issue 来描述您遇到的问题，我们会逐个解决。
 

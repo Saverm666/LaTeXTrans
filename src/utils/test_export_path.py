@@ -3,11 +3,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from src.utils.export_path import (
+    copy_pdf_to_path,
     decode_picker_bytes,
     default_export_directory,
     load_directory_from_picker_output,
+    load_persisted_export_directory,
     normalize_user_directory,
     parse_picked_directory,
+    persist_export_directory,
     resolve_save_path,
     sanitize_download_filename,
 )
@@ -29,6 +32,17 @@ class ResolveSavePathTest(unittest.TestCase):
     def test_rejects_empty_directory(self):
         with self.assertRaises(ValueError):
             resolve_save_path('  ', 'a.pdf')
+
+    def test_copies_pdf_into_selected_directory(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'source.pdf'
+            source.write_bytes(b'%PDF-test')
+
+            result = copy_pdf_to_path(str(source), str(root / 'chosen'), 'saved paper')
+
+            self.assertEqual(result, root / 'chosen' / 'saved paper.pdf')
+            self.assertEqual(result.read_bytes(), b'%PDF-test')
 
 
 class NormalizeUserDirectoryTest(unittest.TestCase):
@@ -99,3 +113,22 @@ class LoadPickerResultTest(unittest.TestCase):
             result = load_directory_from_picker_output(str(sidecar).encode('utf-8'))
             self.assertEqual(result, '/mnt/c/Users/123/文档/论文')
 
+
+class PersistExportDirectoryTest(unittest.TestCase):
+    def test_round_trips_chinese_windows_path(self):
+        with TemporaryDirectory() as tmp:
+            state_file = str(Path(tmp) / 'export_dir')
+            saved = persist_export_directory(
+                r'C:\Users\123\文档\论文',
+                state_file=state_file,
+            )
+            self.assertEqual(saved, '/mnt/c/Users/123/文档/论文')
+            self.assertEqual(
+                load_persisted_export_directory(state_file=state_file),
+                '/mnt/c/Users/123/文档/论文',
+            )
+
+    def test_returns_none_when_state_file_missing(self):
+        with TemporaryDirectory() as tmp:
+            missing = str(Path(tmp) / 'missing')
+            self.assertIsNone(load_persisted_export_directory(state_file=missing))

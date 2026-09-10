@@ -1,5 +1,5 @@
 sys_name = "LaTeXTrans"
-version = "0.1.0"
+version = "0.1.15"
 target_language = "ch"
 source_language = "en"
 paper_list = []
@@ -14,3 +14,6 @@ user_term = ""
 model = ""
 api_key = ""
 base_url = ""
+repair_model = ""
+repair_api_key = ""
+repair_base_url = ""

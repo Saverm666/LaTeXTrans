@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import os
 import shutil
 import subprocess
@@ -42,7 +42,7 @@ class LaTexCompiler:
                 print(f"⚠️  Failed to generate PDF with {engines[index - 1]}. 🔁Retrying with {engine}...⏳")
             compile_ok = self._run_latexmk(tex_file_to_compile, out_dir, engine, write_success=True)
             if not compile_ok and engine == "xelatex":
-                compile_ok = self._finish_xdv_to_pdf(out_dir)
+                compile_ok = self._recover_xelatex_output(tex_file_to_compile, out_dir)
             pdf_path = pick_compiled_pdf(compile_ok, self._list_pdfs(out_dir))
             if pdf_path:
                 print(f"✅  Successfully generated PDF file !")
@@ -242,6 +242,68 @@ class LaTexCompiler:
         except (subprocess.CalledProcessError, FileNotFoundError):
             print("⚠️  xdvipdfmx failed to convert XDV to PDF.")
             return False
+
+    def _recover_xelatex_output(self, tex_file: str, out_dir: str) -> bool:
+        bibliography_status = self._run_bibtex_if_needed(tex_file, out_dir)
+        if bibliography_status is False:
+            return False
+        if bibliography_status is True:
+            print("🔧 BibTeX completed; rerunning XeLaTeX to resolve citations.")
+            self._rerun_latex_engine(tex_file, out_dir, "xelatex", passes=2)
+        return self._finish_xdv_to_pdf(out_dir)
+
+    def _run_bibtex_if_needed(self, tex_file: str, out_dir: str) -> Optional[bool]:
+        job_name = os.path.splitext(os.path.basename(tex_file))[0]
+        aux_path = os.path.join(out_dir, f"{job_name}.aux")
+        if not os.path.isfile(aux_path):
+            return None
+        try:
+            with open(aux_path, "r", encoding="utf-8", errors="replace") as handle:
+                aux_source = handle.read()
+        except OSError:
+            return None
+        if "\\bibdata" not in aux_source:
+            return None
+
+        cwd = os.path.dirname(tex_file)
+        aux_target = os.path.relpath(os.path.splitext(aux_path)[0], cwd)
+        try:
+            completed = subprocess.run(
+                ["bibtex", aux_target],
+                check=False,
+                capture_output=True,
+                cwd=cwd,
+                env=self._latexmk_env(),
+            )
+        except FileNotFoundError:
+            print("⚠️  BibTeX is required but was not found.")
+            return False
+        if completed.returncode != 0:
+            stderr = completed.stderr.decode("utf-8", errors="replace").strip()
+            print(f"⚠️  BibTeX failed while recovering citations: {stderr[-1000:]}")
+            return False
+        return True
+
+    def _rerun_latex_engine(self, tex_file: str, out_dir: str, engine: str, passes: int = 2) -> None:
+        cmd = [
+            engine,
+            "-no-pdf" if engine == "xelatex" else "-draftmode",
+            "-interaction=nonstopmode",
+            "-file-line-error",
+            f"-output-directory={out_dir}",
+            tex_file,
+        ]
+        for _ in range(passes):
+            try:
+                subprocess.run(
+                    cmd,
+                    check=False,
+                    capture_output=True,
+                    cwd=os.path.dirname(tex_file),
+                    env=self._latexmk_env(),
+                )
+            except FileNotFoundError:
+                break
 
     def _print_latexmk_output(self, exc: subprocess.CalledProcessError) -> None:
         for stream_name, raw in (("stderr", exc.stderr), ("stdout", exc.stdout)):

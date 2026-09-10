@@ -13,10 +13,14 @@ from src.runtime import run_translation, split_multivalue_text
 from src.utils.export_path import (
     copy_pdf_to_path,
     default_export_directory,
+    load_persisted_export_directory,
+    persist_export_directory,
     pick_save_directory,
     sanitize_download_filename,
 )
+from src.utils.model_catalog import ModelCatalogError, fetch_model_ids, models_url
 from src.utils.progress import get_progress_backend, set_progress_backend
+from src.utils.webui_config import merge_ui_into_config, save_config_file
 
 
 def _collect_result_pdfs(result: Dict[str, Any]) -> List[Dict[str, str]]:
@@ -104,9 +108,19 @@ def _ensure_session_state() -> None:
     streamlit_backend.session_state.setdefault("retry_payload", None)
     streamlit_backend.session_state.setdefault("last_inputs", None)
     streamlit_backend.session_state.setdefault("last_params", None)
+    streamlit_backend.session_state.setdefault("last_result", None)
     streamlit_backend.session_state.setdefault("arxiv_ids", "")
     streamlit_backend.session_state.setdefault("project_paths", "")
-    streamlit_backend.session_state.setdefault("export_dir", default_export_directory())
+    streamlit_backend.session_state.setdefault("primary_model_options", [])
+    streamlit_backend.session_state.setdefault("primary_model_source", "")
+    streamlit_backend.session_state.setdefault("primary_model_status", None)
+    streamlit_backend.session_state.setdefault("repair_model_options", [])
+    streamlit_backend.session_state.setdefault("repair_model_source", "")
+    streamlit_backend.session_state.setdefault("repair_model_status", None)
+    streamlit_backend.session_state.setdefault(
+        "export_dir",
+        load_persisted_export_directory() or default_export_directory(),
+    )
 
 
 def _inject_style() -> None:
@@ -154,27 +168,180 @@ def _inject_style() -> None:
     )
 
 
+def _model_picker(
+    container: Any,
+    label: str,
+    options_key: str,
+    model_key: str,
+    select_key: str,
+    help_text: str,
+) -> str:
+    options = streamlit_backend.session_state.get(options_key, [])
+    if not options:
+        return container.text_input(label, key=model_key, help=help_text)
+
+    current = streamlit_backend.session_state.get(model_key, "")
+    choices = list(options)
+    if current and current not in choices:
+        choices.insert(0, current)
+
+    if streamlit_backend.session_state.get(select_key) not in choices:
+        streamlit_backend.session_state[select_key] = current if current in choices else choices[0]
+
+    def apply_selection() -> None:
+        streamlit_backend.session_state[model_key] = streamlit_backend.session_state[select_key]
+
+    return container.selectbox(
+        label,
+        choices,
+        key=select_key,
+        on_change=apply_selection,
+        help="从已获取的服务端模型中选择，选择结果会自动保存。",
+    )
+
+
+def _fetch_models_from_sidebar(
+    button_container: Any,
+    button_label: str,
+    button_key: str,
+    base_url: str,
+    api_key: str,
+    model_key: str,
+    options_key: str,
+    source_key: str,
+    status_key: str,
+) -> None:
+    def load_models() -> None:
+        current_url = streamlit_backend.session_state.get(
+            "ui_repair_url" if model_key == "ui_repair_model" else "ui_base_url",
+            base_url,
+        )
+        current_key = streamlit_backend.session_state.get(
+            "ui_repair_key" if model_key == "ui_repair_model" else "ui_api_key",
+            api_key,
+        )
+        try:
+            endpoint = models_url(current_url)
+            models = fetch_model_ids(current_url, current_key)
+        except ModelCatalogError as exc:
+            streamlit_backend.session_state[options_key] = []
+            streamlit_backend.session_state[source_key] = ""
+            streamlit_backend.session_state[status_key] = ("error", str(exc))
+            return
+
+        streamlit_backend.session_state[options_key] = models
+        streamlit_backend.session_state[source_key] = endpoint
+        streamlit_backend.session_state[status_key] = ("success", f"已获取 {len(models)} 个模型。")
+        if not streamlit_backend.session_state.get(model_key):
+            streamlit_backend.session_state[model_key] = models[0]
+
+    button_container.button(
+        button_label,
+        key=button_key,
+        use_container_width=True,
+        on_click=load_models,
+    )
+    status = streamlit_backend.session_state.get(status_key)
+    if status:
+        getattr(streamlit_backend.sidebar, status[0])(status[1])
+
+
 def _sidebar_form(defaults: Dict[str, Any]) -> Dict[str, Any]:
-    llm_defaults = defaults.get("llm_config", {})
-    streamlit_backend.sidebar.header("运行配置")
-    config_path = streamlit_backend.sidebar.text_input("配置文件路径", "config/default.toml")
-    source_language = streamlit_backend.sidebar.text_input("源语言", defaults.get("source_language", "en"))
-    target_language = streamlit_backend.sidebar.text_input("目标语言", defaults.get("target_language", "ch"))
-    model = streamlit_backend.sidebar.text_input("模型", llm_defaults.get("model", ""))
-    base_url = streamlit_backend.sidebar.text_input("Base URL", llm_defaults.get("base_url", ""))
-    api_key = streamlit_backend.sidebar.text_input("API Key", llm_defaults.get("api_key", ""), type="password")
-    repair_model = streamlit_backend.sidebar.text_input(
-        "修复模型（可选）", llm_defaults.get("repair_model", ""),
-        help="仅在校验发现 LaTeX / 占位符 / 括号错误时使用。",
-    )
-    repair_url = streamlit_backend.sidebar.text_input("修复模型 Base URL", llm_defaults.get("repair_base_url", ""))
-    repair_key = streamlit_backend.sidebar.text_input("修复模型 API Key", llm_defaults.get("repair_api_key", ""), type="password")
+    llm_defaults = defaults.get("llm_config", {}) or {}
     mode_options = {"0 - 普通": 0, "1 - 仅重试错误": 1, "2 - 术语词典": 2}
-    selected_mode = streamlit_backend.sidebar.selectbox("模式", list(mode_options.keys()), index=0)
-    update_term = streamlit_backend.sidebar.checkbox(
-        "更新术语表",
-        value=str(defaults.get("update_term", "False")) == "True",
+    mode_labels = {value: label for label, value in mode_options.items()}
+    saved_mode = defaults.get("mode", 0)
+    try:
+        saved_mode = int(saved_mode)
+    except (TypeError, ValueError):
+        saved_mode = 0
+
+    streamlit_backend.session_state.setdefault("ui_config_path", "config/default.toml")
+    streamlit_backend.session_state.setdefault("ui_source_language", defaults.get("source_language", "en"))
+    streamlit_backend.session_state.setdefault("ui_target_language", defaults.get("target_language", "ch"))
+    streamlit_backend.session_state.setdefault("ui_model", llm_defaults.get("model", ""))
+    streamlit_backend.session_state.setdefault("ui_base_url", llm_defaults.get("base_url", ""))
+    streamlit_backend.session_state.setdefault("ui_api_key", llm_defaults.get("api_key", ""))
+    streamlit_backend.session_state.setdefault("ui_repair_model", llm_defaults.get("repair_model", ""))
+    streamlit_backend.session_state.setdefault("ui_repair_url", llm_defaults.get("repair_base_url", ""))
+    streamlit_backend.session_state.setdefault("ui_repair_key", llm_defaults.get("repair_api_key", ""))
+    streamlit_backend.session_state.setdefault("ui_mode", mode_labels.get(saved_mode, "0 - 普通"))
+    streamlit_backend.session_state.setdefault(
+        "ui_update_term",
+        str(defaults.get("update_term", "False")) == "True",
     )
+    streamlit_backend.session_state.setdefault("ui_user_term", defaults.get("user_term", ""))
+
+    streamlit_backend.sidebar.header("运行配置")
+    config_path = streamlit_backend.sidebar.text_input("配置文件路径", key="ui_config_path")
+    source_language = streamlit_backend.sidebar.text_input("源语言", key="ui_source_language")
+    target_language = streamlit_backend.sidebar.text_input("目标语言", key="ui_target_language")
+
+    streamlit_backend.sidebar.divider()
+    streamlit_backend.sidebar.markdown("**主模型**")
+    base_url = streamlit_backend.sidebar.text_input("主模型 Base URL", key="ui_base_url")
+    api_key = streamlit_backend.sidebar.text_input("主模型 API Key", key="ui_api_key", type="password")
+    model_col, fetch_model_col = streamlit_backend.sidebar.columns(
+        [2.2, 1],
+        vertical_alignment="bottom",
+    )
+    model = _model_picker(
+        model_col,
+        "模型",
+        "primary_model_options",
+        "ui_model",
+        "ui_model_select",
+        "获取列表前可手动填写；获取后此处会直接变成模型下拉框。",
+    )
+    _fetch_models_from_sidebar(
+        fetch_model_col,
+        "获取列表",
+        "fetch_primary_models",
+        base_url,
+        api_key,
+        "ui_model",
+        "primary_model_options",
+        "primary_model_source",
+        "primary_model_status",
+    )
+    if streamlit_backend.session_state.primary_model_source:
+        streamlit_backend.sidebar.caption(
+            f"模型来源：{streamlit_backend.session_state.primary_model_source}"
+        )
+
+    streamlit_backend.sidebar.divider()
+    streamlit_backend.sidebar.markdown("**修复模型（可选）**")
+    repair_url = streamlit_backend.sidebar.text_input("修复模型 Base URL", key="ui_repair_url")
+    repair_key = streamlit_backend.sidebar.text_input("修复模型 API Key", key="ui_repair_key", type="password")
+    repair_model_col, fetch_repair_col = streamlit_backend.sidebar.columns(
+        [2.2, 1],
+        vertical_alignment="bottom",
+    )
+    repair_model = _model_picker(
+        repair_model_col,
+        "模型",
+        "repair_model_options",
+        "ui_repair_model",
+        "ui_repair_model_select",
+        "仅在校验发现 LaTeX / 占位符 / 括号错误时使用。",
+    )
+    _fetch_models_from_sidebar(
+        fetch_repair_col,
+        "获取列表",
+        "fetch_repair_models",
+        repair_url,
+        repair_key,
+        "ui_repair_model",
+        "repair_model_options",
+        "repair_model_source",
+        "repair_model_status",
+    )
+    if streamlit_backend.session_state.repair_model_source:
+        streamlit_backend.sidebar.caption(
+            f"修复模型来源：{streamlit_backend.session_state.repair_model_source}"
+        )
+    selected_mode = streamlit_backend.sidebar.selectbox("模式", list(mode_options.keys()), key="ui_mode")
+    update_term = streamlit_backend.sidebar.checkbox("更新术语表", key="ui_update_term")
     all_existing = streamlit_backend.sidebar.checkbox("处理源码目录中的全部已有工程", value=False)
     resume_from_checkpoint = streamlit_backend.sidebar.checkbox(
         "从断点继续",
@@ -188,13 +355,13 @@ def _sidebar_form(defaults: Dict[str, Any]) -> Dict[str, Any]:
     )
     user_term = streamlit_backend.sidebar.text_area(
         "用户术语",
-        defaults.get("user_term", ""),
+        key="ui_user_term",
         height=120,
         help="可选的术语说明，会写入现有配置字段。",
     )
 
-    return {
-        "config_path": config_path,
+    params = {
+        "config_path": config_path.strip() or "config/default.toml",
         "source_language": source_language.strip() or "en",
         "target_language": target_language.strip() or "ch",
         "model": model.strip(),
@@ -211,6 +378,12 @@ def _sidebar_form(defaults: Dict[str, Any]) -> Dict[str, Any]:
         "user_term": user_term.strip(),
         "fresh": bool(force_rerun or not resume_from_checkpoint),
     }
+    try:
+        save_config_file(params["config_path"], merge_ui_into_config(defaults, params))
+        streamlit_backend.sidebar.caption(f"配置自动保存至：{params['config_path']}")
+    except OSError as exc:
+        streamlit_backend.sidebar.error(f"写入配置失败：{exc}")
+    return params
 
 
 def _collect_inputs() -> Dict[str, List[str]]:
@@ -261,13 +434,17 @@ def _append_history(result: Dict[str, Any], params: Dict[str, Any], inputs: Dict
 
 def _render_save_directory_picker(button_key: str = "pick_export_dir") -> None:
     if not streamlit_backend.session_state.export_dir:
-        streamlit_backend.session_state.export_dir = default_export_directory()
+        streamlit_backend.session_state.export_dir = (
+            load_persisted_export_directory() or default_export_directory()
+        )
+    if streamlit_backend.session_state.export_dir:
+        persist_export_directory(streamlit_backend.session_state.export_dir)
     streamlit_backend.subheader("保存位置")
     pick_col, path_col = streamlit_backend.columns([0.35, 0.65])
     if pick_col.button("选择保存目录", key=button_key):
         picked = pick_save_directory()
         if picked:
-            streamlit_backend.session_state.export_dir = picked
+            streamlit_backend.session_state.export_dir = persist_export_directory(picked)
             streamlit_backend.rerun()
         else:
             streamlit_backend.warning("未选择目录。")
@@ -339,8 +516,6 @@ def _render_result_files(result: Dict[str, Any], params: Dict[str, Any], inputs:
             streamlit_backend.session_state.retry_payload = retry_payload
             streamlit_backend.rerun()
 
-    _append_history(result=result, params=params, inputs=inputs, logs=streamlit_backend.session_state.current_run_logs)
-
 
 def _render_history() -> None:
     history = streamlit_backend.session_state.job_history
@@ -399,6 +574,7 @@ def _render_history() -> None:
 
 
 def _run_streamlit_job(params: Dict[str, Any], inputs: Dict[str, List[str]], title: str) -> None:
+    streamlit_backend.session_state.last_result = None
     streamlit_backend.subheader(title)
     status_col, stats_col = streamlit_backend.columns([1.6, 1], gap="large")
     with status_col:
@@ -484,7 +660,31 @@ def _run_streamlit_job(params: Dict[str, Any], inputs: Dict[str, List[str]], tit
     results_placeholder.success(
         f"成功 {len(result['completed_projects'])} 个，失败 {len(result['failed_projects'])} 个。"
     )
-    _render_result_files(result=result, params=params, inputs=inputs)
+    streamlit_backend.session_state.last_result = {
+        "result": result,
+        "params": dict(params),
+        "inputs": {
+            "paper_list": list(inputs["paper_list"]),
+            "project_items": list(inputs["project_items"]),
+        },
+    }
+    _append_history(
+        result=result,
+        params=params,
+        inputs=inputs,
+        logs=streamlit_backend.session_state.current_run_logs,
+    )
+
+
+def _render_last_result() -> None:
+    last_result = streamlit_backend.session_state.get("last_result")
+    if not last_result:
+        return
+    _render_result_files(
+        result=last_result["result"],
+        params=last_result["params"],
+        inputs=last_result["inputs"],
+    )
 
 
 def main() -> None:
@@ -502,7 +702,7 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    default_config_path = "config/default.toml"
+    default_config_path = streamlit_backend.session_state.get("ui_config_path", "config/default.toml")
     defaults = _load_defaults(default_config_path)
     params = _sidebar_form(defaults)
     inputs = _collect_inputs()
@@ -523,6 +723,7 @@ def main() -> None:
             inputs=retry_payload["inputs"],
             title=retry_payload["title"],
         )
+        _render_last_result()
         _render_history()
         return
 
@@ -554,6 +755,7 @@ def main() -> None:
                 title="继续上次任务",
             )
 
+    _render_last_result()
     _render_history()
 
 

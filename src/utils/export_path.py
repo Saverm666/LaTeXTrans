@@ -42,6 +42,28 @@ def normalize_user_directory(path: str) -> Path:
     return Path(raw).expanduser()
 
 
+def default_export_dir_state_file() -> Path:
+    return Path.home() / ".latextrans" / "export_dir"
+
+
+def persist_export_directory(directory: str, state_file: Optional[str] = None) -> str:
+    path = Path(state_file) if state_file else default_export_dir_state_file()
+    normalized = str(normalize_user_directory(directory))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(normalized + "\n", encoding="utf-8")
+    return normalized
+
+
+def load_persisted_export_directory(state_file: Optional[str] = None) -> Optional[str]:
+    path = Path(state_file) if state_file else default_export_dir_state_file()
+    if not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8").strip()
+    if not text:
+        return None
+    return str(normalize_user_directory(text))
+
+
 def parse_picked_directory(raw: Optional[str]) -> Optional[str]:
     if not raw:
         return None
