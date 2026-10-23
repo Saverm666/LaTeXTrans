@@ -148,6 +148,7 @@ def main():
                         page.locator('#pick-output-directory').click()
                         expect(page.locator('#directory-feedback')).to_contain_text('已取消')
                         expect(page.locator('#setting-output')).to_have_value(chosen)
+                    page.locator('input[name="export_variants"][value="bilingual"]').uncheck()
                     page.locator('.settings-details').nth(1).locator('summary').click()
                     page.locator('[data-probe="primary"]').first.click()
                     expect(page.locator('#primary-feedback')).to_contain_text('连接成功', timeout=10000)
@@ -158,7 +159,14 @@ def main():
                     page.get_by_role('button', name='保存设置', exact=True).click()
                     expect(page.get_by_role('dialog')).not_to_be_visible()
                     assert toml.load(config)['llm_config']['api_key'] == 'browser-private-secret'
-                    assert toml.load(config)['output_dir'] == chosen
+                    assert toml.load(config)['export_dir'] == chosen
+                    assert toml.load(config)['output_dir'] == 'outputs'
+                    assert toml.load(config)['export_variants'] == ['mono', 'sidebyside']
+                    page.locator('#model-summary').click()
+                    expect(page.locator('input[name="export_variants"][value="mono"]')).to_be_checked()
+                    expect(page.locator('input[name="export_variants"][value="bilingual"]')).not_to_be_checked()
+                    page.get_by_role('button', name='保存设置', exact=True).click()
+                    expect(page.get_by_role('dialog')).not_to_be_visible()
                     # Upload a real source archive and run the actual translation worker.
                     archive = io.BytesIO()
                     with zipfile.ZipFile(archive, 'w') as target:

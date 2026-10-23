@@ -60,7 +60,9 @@ class Workbench:
                     key=llm.get("api_key", ""), repair_model=llm.get("repair_model", ""),
                     repair_url=llm.get("repair_base_url", ""), repair_key=llm.get("repair_api_key", ""),
                     max_concurrent_requests=llm.get("max_concurrent_requests", 3),
-                    source=config.get("tex_sources_dir", "tex source"), output=config.get("output_dir", "outputs"),
+                    source=config.get("tex_sources_dir", "tex source"), output="outputs",
+                    export_dir=config.get("export_dir", "" if config.get("output_dir", "outputs") == "outputs" else config["output_dir"]),
+                    export_variants=config.get("export_variants", [name for name, _ in PDF_VARIANTS]),
                     source_language=config.get("source_language", "en"), target_language=config.get("target_language", "ch"),
                     mode=config.get("mode", 0), user_term=config.get("user_term", ""),
                     update_term=config.get("update_term", "False"), all_existing=False, fresh=False)
@@ -81,7 +83,12 @@ class Workbench:
                 params[name] = ""
             elif changes.get(name):
                 params[name] = str(changes[name]).strip()
-        for name in ("model", "url", "repair_model", "repair_url", "source", "output", "user_term", "source_language", "target_language"):
+        params["output"] = "outputs"
+        variants = params["export_variants"]
+        if not isinstance(variants, list) or not variants or any(v not in dict(PDF_VARIANTS) for v in variants):
+            raise ValueError("请至少选择一种有效的 PDF 导出版本。")
+        params["export_variants"] = list(dict.fromkeys(variants))
+        for name in ("model", "url", "repair_model", "repair_url", "source", "export_dir", "user_term", "source_language", "target_language"):
             params[name] = str(params[name]).strip()
         params["max_concurrent_requests"] = int(params["max_concurrent_requests"])
         if not 1 <= params["max_concurrent_requests"] <= 32:
@@ -101,6 +108,7 @@ class Workbench:
             params = self.candidate(changes)
             config = merge_ui_into_config(self.config(), params)
             config.update(tex_sources_dir=params["source"], output_dir=params["output"])
+            config.update(export_dir=params["export_dir"], export_variants=params["export_variants"])
             save_config_file(str(self.config_path), config)
             return self.public_settings()
 

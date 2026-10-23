@@ -142,9 +142,11 @@ class WorkbenchHTTPTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"path": directory, "cancelled": False})
         self.assertEqual(self.config.read_text(), original)
-        response = self.client.post(self.url + "/api/settings", json={"output": directory})
+        response = self.client.post(self.url + "/api/settings", json={"export_dir": directory, "export_variants": ["mono", "sidebyside"]})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(toml.load(self.config)["output_dir"], directory)
+        self.assertEqual(toml.load(self.config)["output_dir"], "outputs")
+        self.assertEqual(toml.load(self.config)["export_dir"], directory)
+        self.assertEqual(self.app.params()["export_variants"], ["mono", "sidebyside"])
 
     def test_directory_cancel_and_failure_preserve_existing_output(self):
         original = self.config.read_text()
@@ -156,4 +158,20 @@ class WorkbenchHTTPTest(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("无法打开", response.json()["error"])
         self.assertFalse(self.app.directory_picker_lock.locked())
+        self.assertEqual(self.config.read_text(), original)
+
+    def test_legacy_output_directory_becomes_pdf_destination(self):
+        self.assertEqual(self.app.params()["output"], "outputs")
+        self.assertEqual(self.app.params()["export_dir"], str(self.folder / "output"))
+        response = self.client.post(self.url + "/api/settings", json={"model": "test-model"})
+        self.assertEqual(response.status_code, 200)
+        config = toml.load(self.config)
+        self.assertEqual(config["output_dir"], "outputs")
+        self.assertEqual(config["export_dir"], str(self.folder / "output"))
+
+    def test_invalid_export_versions_do_not_change_settings(self):
+        original = self.config.read_text()
+        for variants in ([], ["invalid"], "mono"):
+            response = self.client.post(self.url + "/api/settings", json={"export_variants": variants})
+            self.assertEqual(response.status_code, 400)
         self.assertEqual(self.config.read_text(), original)

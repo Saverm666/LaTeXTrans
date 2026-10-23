@@ -163,6 +163,10 @@ function openSettings() {
   const form = $('#settings-form');
   closeModelPicker();
   for (const [name,value] of Object.entries(state.settings)) {
+    if (name === 'export_variants') {
+      $$('input[name="export_variants"]').forEach(field => field.checked = value.includes(field.value));
+      continue;
+    }
     const field = form.elements.namedItem(name); if (!field) continue;
     if (field.type === 'checkbox') field.checked = String(value).toLowerCase() === 'true'; else field.value = value ?? '';
   }
@@ -176,6 +180,7 @@ function openSettings() {
 }
 function formSettings() {
   const result = Object.fromEntries(new FormData($('#settings-form')));
+  result.export_variants = new FormData($('#settings-form')).getAll('export_variants');
   result.max_concurrent_requests = Number(result.max_concurrent_requests);
   result.mode = Number(result.mode); result.update_term = $('#settings-form').elements.update_term.checked ? 'True' : 'False';
   return result;
@@ -205,7 +210,7 @@ async function getModels(button) {
 async function pickOutputDirectory() {
   const button = $('#pick-output-directory'), feedback = $('#directory-feedback');
   pickingOutputDirectory = true; $('#save-settings').disabled = true;
-  button.disabled = true; feedback.hidden = false; feedback.textContent = '请在文件管理器中选择输出目录…';
+  button.disabled = true; feedback.hidden = false; feedback.textContent = '请在文件管理器中选择 PDF 保存目录…';
   showError('#settings-error',''); closeModelPicker();
   try {
     const result = await api('/api/directories/pick',{method:'POST',body:'{}',timeout:610000});

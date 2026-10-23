@@ -1,4 +1,5 @@
 import os
+import shutil
 import tarfile
 import zipfile
 import traceback
@@ -8,6 +9,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 import toml
 
 from src.agents.coordinator_agent import CoordinatorAgent
+from src.formats.latex.bilingual import PDF_VARIANTS, variant_filename
 from src.formats.latex.utils import (
     batch_download_arxiv_tex,
     extract_arxiv_ids,
@@ -153,6 +155,9 @@ def load_runtime_config(
         config["mode"] = overrides["mode"]
     if overrides.get("update_term") is not None:
         config["update_term"] = overrides["update_term"]
+    for key in ("export_dir", "export_variants"):
+        if key in overrides:
+            config[key] = overrides[key]
 
     extra_papers = overrides.get("paper_list") or []
     if extra_papers:
@@ -215,6 +220,31 @@ def prepare_projects(
     return projects, config, projects_dir, output_dir
 
 
+def export_project_pdfs(config: Dict[str, Any], output_dir: str, project_name: str) -> List[str]:
+    """Copy selected final PDFs only; preserve all work files in output_dir."""
+    destination = config.get("export_dir", "")
+    if not destination:
+        return []
+    variants = config.get("export_variants", [name for name, _ in PDF_VARIANTS])
+    if not isinstance(variants, list) or not variants or any(v not in dict(PDF_VARIANTS) for v in variants):
+        raise ValueError("请至少选择一种有效的 PDF 导出版本。")
+    language = config.get("target_language", "ch")
+    source_dir = Path(output_dir) / f"{language}_{project_name}"
+    target_dir = resolve_path(str(destination))
+    exported = []
+    for variant in dict.fromkeys(variants):
+        source = source_dir / variant_filename(language, project_name, variant)
+        if not source.is_file():
+            raise FileNotFoundError(f"所选 PDF 版本尚未生成：{source.name}。工作文件保留在 {source_dir}")
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / source.name
+        if source.resolve() != target.resolve():
+            shutil.copy2(source, target)
+        exported.append(str(target))
+        print(f"PDF 已保存：{target}")
+    return exported
+
+
 def run_projects(
     config: Dict[str, Any],
     projects: Sequence[str],
@@ -247,6 +277,7 @@ def run_projects(
                 fresh=fresh,
             )
             latex_trans.workflow_latextrans()
+            export_project_pdfs(config, output_dir, project_name)
         except Exception as e:
             print(f"Error processing project {project_name}: {e}")
             failed_projects.append(

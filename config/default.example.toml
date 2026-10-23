@@ -5,6 +5,9 @@ source_language = "en"
 paper_list = []
 tex_sources_dir = "tex source"
 output_dir = "outputs"
+# Optional PDF-only destination; work files stay in output_dir.
+export_dir = ""
+export_variants = ["mono", "bilingual", "sidebyside"]
 category = {}
 update_term = "False"
 mode = 0

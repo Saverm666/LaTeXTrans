@@ -161,6 +161,8 @@ class TranslationJob:
             "source", "output", "source_language", "target_language", "mode", "user_term", "update_term",
         )}
         overrides["paper_list"] = self.inputs["paper_list"]
+        overrides["export_dir"] = self.params.get("export_dir", "")
+        overrides["export_variants"] = self.params.get("export_variants", ["mono", "bilingual", "sidebyside"])
         payload = dict(config_path=self.params["config_path"], overrides=overrides,
                        project_items=self.inputs["project_items"], all_existing=self.params["all_existing"],
                        fresh=self.params.get("fresh", False))
