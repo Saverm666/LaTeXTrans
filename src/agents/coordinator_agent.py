@@ -13,6 +13,7 @@ from .tool_agents.generator_agent import GeneratorAgent
 from .tool_agents.validator_agent import ValidatorAgent
 from src.formats.latex.compile_result import should_run_final_compile
 from src.formats.latex.bilingual import variant_filename
+from src.utils.telemetry import emit
 from src.formats.latex.checkpoint import (
     STAGES,
     config_fingerprint,
@@ -75,6 +76,7 @@ class CoordinatorAgent:
             if restore_from:
                 restore_snapshot(transed_project_dir, restore_from)
             write_checkpoint(transed_project_dir, stage, "running", fingerprint)
+            emit("stage_start", stage=stage, project_name=base_name)
             try:
                 if stage == "parse":
                     self._run_parse(transed_project_dir)
@@ -100,6 +102,7 @@ class CoordinatorAgent:
                         write_checkpoint(transed_project_dir, "compile", "failed", fingerprint)
                         raise RuntimeError(f"Failed to compile PDF for {base_name}")
                 write_checkpoint(transed_project_dir, stage, "completed", fingerprint)
+                emit("stage_complete", stage=stage, project_name=base_name)
             except Exception:
                 write_checkpoint(transed_project_dir, stage, "failed", fingerprint)
                 raise
@@ -193,6 +196,8 @@ class CoordinatorAgent:
 
         finally:
             if tasks := asyncio.all_tasks(self.loop):
+                for task in tasks:
+                    task.cancel()
                 self.loop.run_until_complete(
                     asyncio.gather(*tasks, return_exceptions=True)
                 )

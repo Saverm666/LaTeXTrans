@@ -6,6 +6,7 @@ from .utils import find_main_tex_file
 from .compile_result import (
     compile_engine_order,
     latexmk_args,
+    log_needs_extra_pass,
     pdf_needs_xdvipdfmx_rewrite,
     pick_compiled_pdf,
     sanitize_pdftex_primitives,
@@ -245,12 +246,24 @@ class LaTexCompiler:
 
     def _recover_xelatex_output(self, tex_file: str, out_dir: str) -> bool:
         bibliography_status = self._run_bibtex_if_needed(tex_file, out_dir)
-        if bibliography_status is False:
-            return False
         if bibliography_status is True:
             print("🔧 BibTeX completed; rerunning XeLaTeX to resolve citations.")
             self._rerun_latex_engine(tex_file, out_dir, "xelatex", passes=2)
+        elif self._log_needs_extra_pass(out_dir):
+            print("🔧 Undefined citations/references detected; rerunning XeLaTeX.")
+            self._rerun_latex_engine(tex_file, out_dir, "xelatex", passes=2)
         return self._finish_xdv_to_pdf(out_dir)
+
+    def _log_needs_extra_pass(self, out_dir: str) -> bool:
+        for log_path in self._list_logs(out_dir):
+            try:
+                with open(log_path, "r", encoding="utf-8", errors="replace") as handle:
+                    log_text = handle.read()
+            except OSError:
+                continue
+            if log_needs_extra_pass(log_text):
+                return True
+        return False
 
     def _run_bibtex_if_needed(self, tex_file: str, out_dir: str) -> Optional[bool]:
         job_name = os.path.splitext(os.path.basename(tex_file))[0]

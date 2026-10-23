@@ -18,6 +18,9 @@ def merge_ui_into_config(config: Dict[str, Any], ui: Dict[str, Any]) -> Dict[str
     llm["repair_model"] = ui.get("repair_model", "") or ""
     llm["repair_base_url"] = ui.get("repair_url", "") or ""
     llm["repair_api_key"] = ui.get("repair_key", "") or ""
+    llm["max_concurrent_requests"] = ui.get(
+        "max_concurrent_requests", llm.get("max_concurrent_requests", 3)
+    )
     merged["llm_config"] = llm
     return merged
 

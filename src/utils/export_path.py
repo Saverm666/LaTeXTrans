@@ -106,6 +106,7 @@ def _run_folder_picker() -> Optional[bytes]:
     powershell = shutil.which("powershell.exe") or shutil.which("pwsh.exe")
     if powershell:
         script = (
+            "$ErrorActionPreference = 'Stop';"
             "Add-Type -AssemblyName System.Windows.Forms;"
             "$form = New-Object System.Windows.Forms.Form;"
             "$form.TopMost = $true;"
@@ -126,6 +127,9 @@ def _run_folder_picker() -> Optional[bytes]:
             capture_output=True,
             timeout=600,
         )
+        if completed.returncode != 0:
+            detail = decode_picker_bytes(completed.stderr) or "目录选择器启动失败"
+            raise OSError(f"无法打开 Windows 文件管理器：{detail.strip()[:400]}")
         return completed.stdout
     zenity = shutil.which("zenity")
     if zenity:
@@ -136,6 +140,9 @@ def _run_folder_picker() -> Optional[bytes]:
         )
         if completed.returncode == 0:
             return completed.stdout
+        if completed.returncode != 1 or completed.stderr:
+            detail = decode_picker_bytes(completed.stderr) or "目录选择器启动失败"
+            raise OSError(f"无法打开文件管理器：{detail.strip()[:400]}")
     return None
 
 

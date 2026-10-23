@@ -6,6 +6,7 @@ import sys
 import os
 import requests
 import time
+from src.utils.telemetry import emit, request_event
 
 base_dir = os.getcwd()
 sys.path.append(base_dir)
@@ -95,9 +96,11 @@ class ParserAgent(BaseToolAgent):
                 }
             ],
             "temperature": 0,
-            # "max_length": 100000,
-            "max_tokens": 50
+            # Reasoning models may use hundreds of tokens before returning True/False.
+            "max_tokens": 2048
         }
+        if "deepseek" in str(self.model).lower():
+            payload["thinking"] = {"type": "disabled"}
 
         headers = {
             "Authorization": f"Bearer {self.API_KEY}",
@@ -105,24 +108,49 @@ class ParserAgent(BaseToolAgent):
         }
         
         
-        for attempt in range(1, 4):
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
             try:
-                response = requests.post(self.base_url, json=payload, headers=headers, timeout=100)
-                response.raise_for_status()  
-                result = response.json()
-                output = result["choices"][0]["message"]["content"].strip()
+                with request_event(self.model, "环境翻译判断", attempt):
+                    response = requests.post(self.base_url, json=payload, headers=headers, timeout=100)
+                    response.raise_for_status()
+                    result = response.json()
+                    choices = result.get("choices") if isinstance(result, dict) else None
+                    choice = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else None
+                    message = choice.get("message") if choice else None
+                    if choice and choice.get("finish_reason") == "length":
+                        previous_limit = payload["max_tokens"]
+                        payload["max_tokens"] = previous_limit * 2
+                        raise ValueError(f"Judge API output was truncated at max_tokens={previous_limit}")
+                    content = message.get("content") if isinstance(message, dict) else None
+                    if not isinstance(content, str) or not content.strip():
+                        raise ValueError("Judge API response is missing text in choices[0].message.content")
 
-                if output.lower() == "true":
-                    return True
-                elif output.lower() == "false":
-                    return False
-                else:
-                    return True                
-            except requests.exceptions.RequestException as e:
-                if attempt < 3:
-                    print(f"{e}")
+                    output = content.strip()
+
+                    if output.lower() == "true":
+                        return True
+                    elif output.lower() == "false":
+                        return False
+                    else:
+                        return True
+            except (requests.exceptions.RequestException, ValueError, TypeError, KeyError) as e:
+                if (
+                    isinstance(e, requests.exceptions.HTTPError)
+                    and payload.get("thinking")
+                    and e.response is not None
+                    and e.response.status_code in (400, 422)
+                    and attempt < max_attempts
+                ):
+                    emit("request_retry", model=self.model, part="环境翻译判断", attempt=attempt + 1, delay=0)
+                    payload.pop("thinking")
+                    print("⚠️ Judge API rejected the thinking switch; retrying without it.")
+                    continue
+                if attempt < max_attempts:
+                    print(f"⚠️ need_trans request failed (attempt {attempt}/{max_attempts}): {e}")
+                    emit("request_retry", model=self.model, part="环境翻译判断", attempt=attempt + 1, delay=3)
                     time.sleep(3)  
                 else:
-                    print(f"⚠️ Failed to Set need trans, set True.")
+                    print(f"⚠️ Failed to set need_trans after {max_attempts} attempts; defaulting to True: {e}")
                     return True
                 

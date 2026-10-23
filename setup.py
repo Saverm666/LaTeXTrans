@@ -16,8 +16,9 @@ def load_requirements(path: str) -> List[str]:
 
 setup(
     name="LaTeXTrans",
-    version="0.1.18",
+    version="0.1.23",
     packages=find_packages(),
+    package_data={"src.gui": ["web/*.html", "web/*.css", "web/*.js"]},
     py_modules=["main"],
     install_requires=load_requirements("requirements.txt"),
     entry_points={

@@ -71,10 +71,10 @@ For MikTex, installation please be sure to select "install on the fly", in addit
 
 ### Local Configuration
 
-Please edit the configuration file before use:
+Copy the example configuration before first use, then edit `config/default.toml`. The local configuration is ignored by Git so API keys stay on your machine:
 
-```arduino
-config/default.toml
+```bash
+cp config/default.example.toml config/default.toml
 ```
 
 Set the language model's API key and base URL in default.toml :
@@ -151,7 +151,7 @@ To process every existing project under `tex source`, run:
 latextrans --all-existing
 ```
 
-### GUI via Streamlit
+### Web workbench
 
 If you want a browser-based GUI with live workflow progress, logs, and runtime configuration, launch:
 
@@ -159,13 +159,15 @@ If you want a browser-based GUI with live workflow progress, logs, and runtime c
 latextrans-gui
 ```
 
-Or run Streamlit directly:
+Or run the local web server directly:
 
 ```bash
-streamlit run src/gui/streamlit_app.py
+python -m src.gui.server
 ```
 
-After entering an OpenAI-compatible Base URL and API key in the sidebar, click **Fetch model list** to load and select a model from the server. The model, endpoint, and key are saved to the active configuration file. The optional repair model can be fetched and saved separately.
+Open **http://localhost:8501**. Upload a source archive, paste arXiv links, or select the local-project input. Configure the model in **Settings**; settings are saved explicitly. The independent web interface reports request failures, retries, waiting time, and workflow progress. Stop or resume tasks, download PDFs, and export diagnostics without blocking the page. No Node.js build step is required.
+
+Use `--port`, `--host`, or `--config` to customize the server. The former `streamlit run` entry point has been retired.
 
  > [!NOTE]
 Although LaTeXTrans supports translation from any language to any language, the current version has only made relatively complete compilation adaptations for translation from English to Chinese. When translating to other languages, the final output pdf may contain errors. We welcome you to raise an issue to describe the problem you have encountered, and we will solve it case by case.

@@ -1,6 +1,8 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from src.utils.export_path import (
     copy_pdf_to_path,
@@ -9,11 +11,25 @@ from src.utils.export_path import (
     load_directory_from_picker_output,
     load_persisted_export_directory,
     normalize_user_directory,
+    pick_save_directory,
     parse_picked_directory,
     persist_export_directory,
     resolve_save_path,
     sanitize_download_filename,
 )
+
+
+class NativeDirectoryPickerTest(unittest.TestCase):
+    def test_windows_picker_failure_is_not_reported_as_cancellation(self):
+        result = SimpleNamespace(returncode=1, stdout=b"", stderr=b"Desktop is unavailable")
+        with patch("src.utils.export_path.shutil.which", return_value="powershell.exe"), patch("src.utils.export_path.subprocess.run", return_value=result):
+            with self.assertRaisesRegex(OSError, "Desktop is unavailable"):
+                pick_save_directory()
+
+    def test_windows_picker_cancel_returns_no_directory(self):
+        result = SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+        with patch("src.utils.export_path.shutil.which", return_value="powershell.exe"), patch("src.utils.export_path.subprocess.run", return_value=result):
+            self.assertIsNone(pick_save_directory())
 
 
 class SanitizeDownloadFilenameTest(unittest.TestCase):

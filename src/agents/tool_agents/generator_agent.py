@@ -86,7 +86,8 @@ class GeneratorAgent(BaseToolAgent):
                                 envs=envs,
                                 inputs=inputs,
                                 newcommands=newcommands,
-                                output_latex_dir=transed_latex_dir
+                                output_latex_dir=transed_latex_dir,
+                                target_language=self.config.get("target_language", "ch"),
                             )
         latex_constructor.construct()
 

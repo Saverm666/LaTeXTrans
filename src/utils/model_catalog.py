@@ -8,6 +8,27 @@ class ModelCatalogError(RuntimeError):
     """Raised when an OpenAI-compatible model catalog cannot be loaded."""
 
 
+def chat_completions_url(base_url: str) -> str:
+    """Normalize a host or API root to its chat completions endpoint."""
+    value = (base_url or "").strip()
+    if not value:
+        return ""
+
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ModelCatalogError("Base URL 必须是有效的 http(s) 地址。")
+
+    path = parsed.path.rstrip("/")
+    if path.endswith("/chat/completions"):
+        endpoint_path = path
+    elif path.rsplit("/", 1)[-1].startswith("v") and path.rsplit("/", 1)[-1][1:].isdigit():
+        endpoint_path = f"{path}/chat/completions"
+    else:
+        endpoint_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
+
+    return urlunsplit((parsed.scheme, parsed.netloc, endpoint_path, parsed.query, parsed.fragment))
+
+
 def models_url(base_url: str) -> str:
     """Return the `/models` URL for a common OpenAI-compatible API URL."""
     value = (base_url or "").strip()

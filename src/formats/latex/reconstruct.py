@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 import os
 import re
+from .compile_result import adapt_preamble_for_engine
 from .utils import *
 
 class LatexConstructor:
@@ -10,7 +11,8 @@ class LatexConstructor:
                  envs: List[Dict[str, Any]],
                  inputs: List[Dict[str, Any]],
                  newcommands: List[Dict[str, Any]],
-                 output_latex_dir: str
+                 output_latex_dir: str,
+                 target_language: str = "ch"
                  ):
         self.sections = sections
         self.captions = captions
@@ -18,6 +20,7 @@ class LatexConstructor:
         self.inputs = inputs
         self.newcommands = newcommands
         self.output_latex_dir = output_latex_dir
+        self.target_language = target_language
 
     def construct(self):
         """
@@ -27,12 +30,7 @@ class LatexConstructor:
         tex = self._revert_envs(tex)
         tex = self._revert_captions(tex)
         tex = self._revert_newcommands(tex)
-
-        # process japanese specific packages ----------
-        # tex = self._comment_out_latex_packages_for_ja(tex)
-        # tex = self._add_lualatex_option_to_documentclass_for_ja(tex)
-        # ---------------------------------------------
-
+        tex = adapt_preamble_for_engine(tex, self.target_language)
 
         self._revert_inputs(tex)
     
@@ -130,11 +128,8 @@ class LatexConstructor:
             print(f"⚠️ Warning: Residual placeholders found and removed: {residual_matches}")
             tex = re.sub(r"<PLACEHOLDER_[^>]*>", "", tex)
 
-        tex = add_ctex_package(tex) # zh
-        # tex = add_ja_package(tex)  # ja
-
         main_file_path = find_main_tex_file(self.output_latex_dir)
-        if os.path.exists(main_file_path):
+        if main_file_path and os.path.exists(main_file_path):
             with open(main_file_path, "w", encoding="utf-8") as f:
                 f.write(tex)
         else:
@@ -142,52 +137,6 @@ class LatexConstructor:
             main_file_path = os.path.join(self.output_latex_dir, "main.tex")
             with open(main_file_path, "w", encoding="utf-8") as f:
                 f.write(tex)
-
-    def _comment_out_latex_packages_for_ja(self, tex):
-
-        packages_to_comment = [
-            r'\usepackage[utf8]{inputenc}',
-            r'\usepackage[T1]{fontenc}',
-            r'\usepackage{times}',
-            r'\usepackage{mathptmx}',
-            r'\pdfoutput=1'
-        ]
-        
-        lines = tex.splitlines()
-        
-        for i, line in enumerate(lines):
-            stripped_line = line.strip()
-            for package in packages_to_comment:
-                if stripped_line.startswith(package) and not stripped_line.startswith('%'):
-                    lines[i] = line.replace(package, f'% {package}')
-                    break 
-        
-        return '\n'.join(lines)        
-
-    def _add_lualatex_option_to_documentclass_for_ja(self, tex):
-
-        import re
-        
-        pattern = re.compile(r'\\documentclass(?:\[([^\]]*)\])?(\{.*?\})')
-        
-        def replacer(match):
-            options = match.group(1)
-            class_name = match.group(2)
-            
-            if options:
-                if 'lualatex' not in options:
-                    new_options = options + ', lualatex'
-                else:
-                    new_options = options
-                return f'\\documentclass[{new_options}]{class_name}'
-            else:
-                return f'\\documentclass[lualatex]{class_name}'
-        
-        modified_source = pattern.sub(replacer, tex)
-        
-        return modified_source
-    
-
 
 # caption_dir = "D:\code\AutoLaTexTrans\output\ch_arXiv-2504.10471v1\captions_map.json"
 # section_dir = "D:\code\AutoLaTexTrans\output\ch_arXiv-2504.10471v1\sections_map.json"

@@ -1,6 +1,7 @@
 import os
 import tarfile
 import zipfile
+import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
@@ -134,6 +135,8 @@ def load_runtime_config(
         llm_config["repair_model"] = overrides["repair_model"]
     if overrides.get("repair_key"):
         llm_config["repair_api_key"] = overrides["repair_key"]
+    if overrides.get("max_concurrent_requests") is not None:
+        llm_config["max_concurrent_requests"] = overrides["max_concurrent_requests"]
 
     for key in ("source", "output", "source_language", "target_language", "user_term"):
         if overrides.get(key):
@@ -252,7 +255,7 @@ def run_projects(
                     "total": total_projects,
                     "project_name": project_name,
                     "project_dir": project_dir,
-                    "error": str(e),
+                    "error": str(e) or type(e).__name__,
                 }
             )
             if event_callback:
@@ -263,7 +266,8 @@ def run_projects(
                         "total": total_projects,
                         "project_name": project_name,
                         "project_dir": project_dir,
-                        "error": str(e),
+                        "error": str(e) or type(e).__name__,
+                        "traceback": traceback.format_exc(),
                     }
                 )
             continue

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light"><title>LaTeXTrans · 论文翻译</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%2312262d'/%3E%3Cpath d='M11 10v20h18v-5H17V10z' fill='%23b6e8d3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script>
+</head>
+<body>
+<svg class="icon-defs" aria-hidden="true"><defs>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4h6c2 0 2 1 2 2 0-1 0-2 2-2h6v15h-6c-2 0-2 1-2 1s0-1-2-1H4zM12 6v14"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6m2-3v5l3 2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m-4 4 4-4 4 4M4 15v5h16v-5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6m-6 4h6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m12 3 10 18H2zM12 9v5m0 3v1"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M2 12h5l3-8 4 16 3-8h5"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+</defs></svg>
+<a href="#main" class="skip-link">跳到工作区</a>
+<div class="app-shell">
+  <aside class="rail" aria-label="主导航">
+    <a class="brand-mark" href="/" aria-label="LaTeXTrans 首页">L<span>t</span></a>
+    <nav>
+      <button class="nav-item active" data-view="workspace" aria-current="page"><svg><use href="#i-grid"/></svg><span>工作台</span></button>
+      <button class="nav-item" data-view="history"><svg><use href="#i-history"/></svg><span>任务记录</span></button>
+    </nav>
+    <button class="nav-item rail-settings" data-action="settings"><svg><use href="#i-settings"/></svg><span>模型设置</span></button>
+    <div class="rail-footer">LaTeX<br><span>Trans</span></div>
+  </aside>
+  <div class="app-body">
+    <header class="topbar"><div class="brand-name">LaTeXTrans <span>/</span> <span id="breadcrumb">翻译工作台</span></div>
+      <div class="topbar-right"><span class="server-state" id="server-state"><i></i>正在连接</span><button class="button quiet small" data-action="settings"><svg><use href="#i-settings"/></svg><span>设置</span></button></div>
+    </header>
+    <main id="main">
+      <div id="page-alert" role="alert" class="notice error" hidden></div>
+      <section id="workspace-view" aria-labelledby="workspace-title">
+        <div class="page-heading"><div><div class="eyebrow">TRANSLATION WORKSPACE</div><h1 id="workspace-title">论文翻译</h1><p>从源码到译文，保留公式、引用与 LaTeX 排版。</p></div><div class="heading-note"><svg><use href="#i-book"/></svg><span>读论文，少一点语言障碍。</span></div></div>
+        <div class="workspace-grid">
+          <section class="input-panel" aria-labelledby="input-title">
+            <div class="panel-heading"><h2 id="input-title">添加论文</h2><span class="subtle">支持批量输入</span></div>
+            <div class="input-tabs" role="tablist" aria-label="论文输入方式">
+              <button role="tab" id="tab-upload" aria-controls="input-upload" aria-selected="true" data-input="upload">上传源码</button>
+              <button role="tab" id="tab-arxiv" aria-controls="input-arxiv" aria-selected="false" data-input="arxiv">arXiv 链接</button>
+              <button role="tab" id="tab-local" aria-controls="input-local" aria-selected="false" data-input="local">本地工程</button>
+            </div>
+            <div id="input-upload" role="tabpanel" aria-labelledby="tab-upload" class="input-body">
+              <label class="dropzone" id="dropzone" for="source-files"><span class="upload-symbol"><svg><use href="#i-upload"/></svg></span><strong>将 LaTeX 源码拖到这里</strong><span>或 <em>选择文件</em></span><small>ZIP、TAR、TAR.GZ · 单文件不超过 100 MB</small></label>
+              <input type="file" id="source-files" class="visually-hidden" accept=".zip,.tar,.gz,.tgz" multiple>
+              <div id="uploaded-files" class="uploaded-files" aria-live="polite"></div>
+            </div>
+            <div id="input-arxiv" role="tabpanel" aria-labelledby="tab-arxiv" class="input-body" hidden><label for="arxiv-input" class="field-label">arXiv 序号或链接</label><textarea id="arxiv-input" placeholder="https://arxiv.org/abs/2508.18791&#10;2407.01648" spellcheck="false"></textarea><p class="field-hint">每行一篇，也可以用逗号分隔。将自动下载论文源码。</p></div>
+            <div id="input-local" role="tabpanel" aria-labelledby="tab-local" class="input-body" hidden><label for="local-input" class="field-label">工程目录或源码压缩包路径</label><textarea id="local-input" placeholder="/path/to/paper&#10;/path/to/source.zip" spellcheck="false"></textarea><p class="field-hint">填写运行 LaTeXTrans 的电脑上的路径，每行一个工程。</p><label class="check-label"><input type="checkbox" id="all-existing">处理源码目录中的全部已有工程</label></div>
+            <div class="translation-options"><div><label for="source-language">源语言</label><select id="source-language"><option value="en">英语</option><option value="ch">中文</option><option value="ja">日语</option><option value="fr">法语</option><option value="de">德语</option></select></div><svg class="language-arrow"><use href="#i-arrow"/></svg><div><label for="target-language">目标语言</label><select id="target-language"><option value="ch">简体中文</option><option value="en">英语</option><option value="ja">日语</option><option value="fr">法语</option><option value="de">德语</option></select></div></div>
+            <div class="model-strip"><span class="model-dot"></span><div><span class="small-label">翻译模型</span><button id="model-summary" class="text-button" data-action="settings">尚未配置模型</button></div><button class="icon-button" data-action="settings" aria-label="修改翻译模型"><svg><use href="#i-settings"/></svg></button></div>
+            <div class="start-row"><label class="check-label"><input type="checkbox" id="resume" checked>从已保存的阶段继续</label><button id="start-button" class="button primary"><span>开始翻译</span><svg><use href="#i-arrow"/></svg></button></div>
+            <p id="input-error" class="inline-error" role="alert" hidden></p>
+          </section>
+          <aside class="monitor-panel" aria-labelledby="monitor-title">
+            <div class="panel-heading"><h2 id="monitor-title"><svg><use href="#i-pulse"/></svg>运行状态</h2><span id="live-badge" class="live-badge">实时监控</span></div>
+            <div id="monitor-content" aria-live="polite">
+              <div class="idle-state"><div class="idle-icon"><svg><use href="#i-file"/></svg><span class="idle-check"><svg><use href="#i-check"/></svg></span></div><h3>等待你的第一篇论文</h3><p>添加源码并开始翻译，<br>进度和异常会及时显示在这里。</p></div>
+              <ol class="stage-list idle-stages"><li><span>1</span><div>解析源码<small>识别章节、公式与引用</small></div></li><li><span>2</span><div>翻译与校验<small>保留排版，自动修复异常</small></div></li><li><span>3</span><div>生成 PDF<small>单语、双语对照与边栏版</small></div></li></ol>
+            </div>
+            <div id="monitor-actions" class="monitor-actions" hidden><button id="stop-button" class="button danger small"><svg><use href="#i-stop"/></svg>停止任务</button><a id="diagnostics-link" class="text-link" href="#">下载诊断记录</a></div>
+            <div class="monitor-footnote"><span class="status-dot"></span>超时、重试与失败，无需翻找日志。</div>
+          </aside>
+        </div>
+        <section id="activity-section" class="activity-section" hidden><div class="section-heading"><h2>任务详情</h2><div class="segmented" role="tablist" aria-label="任务详情"><button role="tab" aria-selected="true" data-detail="issues">异常记录 <span id="issue-count">0</span></button><button role="tab" aria-selected="false" data-detail="requests">模型请求</button><button role="tab" aria-selected="false" data-detail="logs">实时日志</button></div></div><div id="issues-panel"></div><div id="requests-panel" hidden></div><div id="logs-panel" hidden><pre id="log-output" tabindex="0" aria-label="实时运行日志"></pre></div></section>
+        <section id="results-section" class="results-section" hidden><div class="section-heading"><h2>翻译文件</h2><span class="subtle">已生成的文件可直接下载</span></div><div id="result-files"></div></section>
+        <section class="recent-section"><div class="section-heading"><h2>最近任务</h2><button class="text-button" data-view="history">查看全部 <span aria-hidden="true">→</span></button></div><div id="recent-jobs"><div class="empty-history"><svg><use href="#i-history"/></svg><span>还没有任务记录。完成的翻译会保留在这里。</span></div></div></section>
+      </section>
+      <section id="history-view" hidden aria-labelledby="history-title"><div class="page-heading"><div><div class="eyebrow">YOUR TRANSLATIONS</div><h1 id="history-title">任务记录</h1><p>查看翻译结果，继续未完成的论文。</p></div><button class="button primary" data-view="workspace">新建翻译 <svg><use href="#i-arrow"/></svg></button></div><div id="history-jobs"></div></section>
+      <footer class="page-footer"><span>LaTeXTrans</span><span>源码、译文、阅读之间。</span></footer>
+    </main>
+  </div>
+</div>
+<dialog id="settings-dialog" aria-labelledby="settings-title">
+  <form id="settings-form"><div class="dialog-header"><div><span class="eyebrow">CONFIGURATION</span><h2 id="settings-title">模型与运行设置</h2></div><button type="button" class="icon-button" id="close-settings" aria-label="关闭设置"><svg><use href="#i-close"/></svg></button></div>
+  <div class="dialog-body"><p class="dialog-intro">连接你自己的模型服务。修改后保存，对下一次翻译生效。</p>
+    <section class="settings-section"><div class="settings-section-heading"><h3>翻译模型</h3><span class="tag">主要使用</span></div>
+      <label class="form-field">服务地址 <input name="url" id="setting-url" type="url" placeholder="https://api.example.com/v1" required></label>
+      <label class="form-field">API Key <span class="key-input"><input name="key" id="setting-key" type="password" autocomplete="off" placeholder="填写 API Key"><button type="button" data-toggle-key="setting-key" aria-label="显示或隐藏主模型密钥">显示</button></span></label>
+      <div class="model-field-row"><div class="form-field"><label for="setting-model">模型名称</label><div class="model-picker" data-model-picker="primary"><input name="model" id="setting-model" placeholder="填写模型或获取列表" autocomplete="off" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="primary-model-options" required><button type="button" class="model-picker-toggle" data-model-toggle="primary" aria-label="展开翻译模型列表" aria-expanded="false" aria-controls="primary-model-options"><svg><use href="#i-chevron"/></svg></button><div id="primary-model-menu" class="model-menu" hidden><div class="model-menu-count" role="status"></div><div id="primary-model-options" class="model-options" role="listbox" aria-label="翻译模型列表"></div><div class="model-menu-hint">输入可搜索，也可手动填写模型名称</div></div></div></div><button type="button" class="button secondary" data-models="primary">获取模型</button></div>
+      <div class="connection-row"><button type="button" class="button quiet small" data-probe="primary"><svg><use href="#i-pulse"/></svg>测试连接</button><button type="button" class="button quiet small" data-probe="primary" data-probe-kind="translation">测试短文翻译</button></div><div id="primary-feedback" class="connection-feedback" role="status" hidden></div>
+    </section>
+    <details class="settings-details"><summary>修复模型 <span>可选，默认沿用翻译模型</span></summary><div class="settings-details-body"><label class="form-field">服务地址<input name="repair_url" id="setting-repair-url" type="url" placeholder="留空使用翻译模型的地址"></label><label class="form-field">API Key<span class="key-input"><input name="repair_key" id="setting-repair-key" type="password" autocomplete="off" placeholder="留空沿用主模型"><button type="button" data-toggle-key="setting-repair-key" aria-label="显示或隐藏修复模型密钥">显示</button></span></label><div class="model-field-row"><div class="form-field"><label for="setting-repair-model">模型名称</label><div class="model-picker" data-model-picker="repair"><input name="repair_model" id="setting-repair-model" placeholder="留空使用翻译模型" autocomplete="off" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="repair-model-options"><button type="button" class="model-picker-toggle" data-model-toggle="repair" aria-label="展开修复模型列表" aria-expanded="false" aria-controls="repair-model-options"><svg><use href="#i-chevron"/></svg></button><div id="repair-model-menu" class="model-menu" hidden><div class="model-menu-count" role="status"></div><div id="repair-model-options" class="model-options" role="listbox" aria-label="修复模型列表"></div><div class="model-menu-hint">输入可搜索，也可手动填写模型名称</div></div></div></div><button type="button" class="button secondary" data-models="repair">获取模型</button></div><div class="connection-row"><button type="button" class="button quiet small" data-probe="repair"><svg><use href="#i-pulse"/></svg>测试连接</button></div><div id="repair-feedback" class="connection-feedback" role="status" hidden></div></div></details>
+    <details class="settings-details"><summary>高级设置 <span>并发、目录与术语</span></summary><div class="settings-details-body"><div class="form-grid"><label class="form-field">最大并发请求<input name="max_concurrent_requests" type="number" min="1" max="32"></label><label class="form-field">翻译模式<select name="mode"><option value="0">普通翻译</option><option value="1">仅修复错误</option><option value="2">术语词典翻译</option></select></label></div><p class="field-hint">接口频繁超时或限流时，可尝试降低并发数。</p><label class="form-field">源码目录<input name="source" placeholder="tex source"></label><div class="form-field"><label for="setting-output">输出目录</label><div class="directory-field"><input name="output" id="setting-output" placeholder="outputs"><button type="button" id="pick-output-directory" class="button secondary">选择目录</button></div><span id="directory-feedback" class="field-hint" role="status" hidden></span></div><label class="form-field">术语 CSV 文件<input name="user_term" placeholder="可选，填写服务器上的文件路径"></label><label class="check-label"><input name="update_term" type="checkbox">翻译时更新术语词典</label><p class="field-hint" id="config-path"></p></div></details>
+    <div id="settings-error" class="notice error" role="alert" hidden></div>
+  </div><div class="dialog-footer"><span id="save-note">配置仅保存到当前电脑</span><div><button type="button" class="button secondary" id="cancel-settings">取消</button><button type="submit" class="button primary" id="save-settings">保存设置</button></div></div></form>
+</dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+</body></html>

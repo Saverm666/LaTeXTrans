@@ -1,0 +1,63 @@
+# Python bytecode and package metadata
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+/build/
+/dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+/htmlcov/
+coverage.xml
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local secrets (keep documented examples)
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Local editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# LaTeX build artifacts
+*.log
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.glg
+*.glo
+*.gls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdv
+
+# LaTeXTrans generated translations and build output
+/outputs/
+/tex source/
+/config/default.toml
+/ctex-smoke.pdf
+
+# Browser test output
+/test-results/
+/playwright-report/

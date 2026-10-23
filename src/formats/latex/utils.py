@@ -545,30 +545,12 @@ def get_captionof_pattern():
     return pattern
 
 def add_ctex_package(latex_code):
-
-    if "\\usepackage[UTF8]{ctex}" not in latex_code:
-        ctex_package = "\\usepackage[UTF8]{ctex}"
-        documentclass = r'documentclass'
-        documentclass_pattern = get_command_pattern(documentclass)
-        # documentclass_pattern = regex.compile(command, regex.DOTALL)
-        match = documentclass_pattern.search(latex_code)
-        if match:
-            position = match.end()
-            latex_code = latex_code[:position] + "\n" + ctex_package + "\n" + latex_code[position:]
-    return latex_code
+    from .compile_result import inject_cjk_package
+    return inject_cjk_package(latex_code, "ch")
 
 def add_ja_package(latex_code):
-
-    if "\\usepackage{luatex-ja}" not in latex_code:
-        ctex_package = "\\usepackage{luatexja}"
-        documentclass = r'documentclass'
-        documentclass_pattern = get_command_pattern(documentclass)
-        # documentclass_pattern = regex.compile(command, regex.DOTALL)
-        match = documentclass_pattern.search(latex_code)
-        if match:
-            position = match.end()
-            latex_code = latex_code[:position] + "\n" + ctex_package + "\n" + latex_code[position:]
-    return latex_code
+    from .compile_result import inject_cjk_package
+    return inject_cjk_package(latex_code, "ja")
 
 def find_main_tex_file(dir): 
     """

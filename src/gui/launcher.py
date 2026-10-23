@@ -1,12 +1,8 @@
-import subprocess
-import sys
-from pathlib import Path
+from src.gui.server import main as serve
 
 
 def main() -> int:
-    app_path = Path(__file__).resolve().parent / "streamlit_app.py"
-    cmd = [sys.executable, "-m", "streamlit", "run", str(app_path)]
-    return subprocess.call(cmd)
+    return serve()
 
 
 if __name__ == "__main__":
